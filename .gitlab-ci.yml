@@ -14,5 +14,5 @@ Build and Check with separate build dir (Centos 6):
     expire_in: 1 week
     when: on_failure
     paths:
-      - build/tests/*.log
+      - build/
 
