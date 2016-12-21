@@ -180,7 +180,7 @@ typedef struct main_server_st {
 	struct htable *ban_db;
 
 	tls_st *creds;
-	
+
 	struct listen_list_st listen_list;
 	struct proc_list_st proc_list;
 	struct script_list_st script_list;

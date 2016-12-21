@@ -223,33 +223,21 @@ int get_ca_der_handler(worker_st * ws, unsigned http_ver)
 int get_config_handler(worker_st *ws, unsigned http_ver)
 {
 	int ret;
-	struct stat st;
 
 	oclog(ws, LOG_HTTP_DEBUG, "requested config: %s", ws->req.url); 
 
 	cookie_authenticate_or_exit(ws);
 
-	if (ws->user_config->xml_config_file == NULL) {
+	if (ws->xml_config_file_size == 0) {
 		oclog(ws, LOG_INFO, "requested config but no config file is set");
 		response_404(ws, http_ver);
 		return -1;
 	}
 	
-	ret = stat(ws->user_config->xml_config_file, &st);
-	if (ret == -1) {
-		oclog(ws, LOG_INFO, "cannot load config file '%s'", ws->user_config->xml_config_file);
-		response_404(ws, http_ver);
-		return -1;
-	}
-
-	cstp_cork(ws);
-	if (send_headers(ws, http_ver, "text/xml", (unsigned)st.st_size) < 0 ||
-	    cstp_uncork(ws) < 0)
-		return -1;
-
-	ret = cstp_send_file(ws, ws->user_config->xml_config_file);
+	ret = send_data(ws, http_ver, "text/xml", (void*)ws->xml_config_file_contents,
+			ws->xml_config_file_size);
 	if (ret < 0) {
-		oclog(ws, LOG_ERR, "error sending file '%s': %s", ws->user_config->xml_config_file, gnutls_strerror(ret));
+		oclog(ws, LOG_ERR, "error sending file data '%s': %s", ws->user_config->xml_config_file, gnutls_strerror(ret));
 		return -1;
 	}
 

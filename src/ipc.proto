@@ -1,5 +1,6 @@
 /* See doc/design.md for the IPC communication sequences.
  */
+syntax = "proto2";
 
 enum AUTH_REP {
 	OK = 1;
@@ -78,6 +79,8 @@ message auth_cookie_reply_msg
 	optional string ipv6_local = 10;
 
 	required bytes sid = 11;
+
+	optional bytes xml_config_contents = 12;
 
 	/* additional config */
 	optional group_cfg_st config = 20;

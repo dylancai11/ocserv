@@ -1161,26 +1161,7 @@ static void check_cfg(struct perm_cfg_st *perm_config)
 	}
 
 	if (perm_config->cert && perm_config->cert_hash == NULL) {
-		perm_config->cert_hash = calc_sha1_hash(perm_config, perm_config->cert[0], 1);
-	}
-
-	if (perm_config->config->xml_config_file) {
-		perm_config->config->xml_config_hash = calc_sha1_hash(perm_config->config, perm_config->config->xml_config_file, 0);
-		if (perm_config->config->xml_config_hash == NULL && perm_config->chroot_dir != NULL) {
-			char path[_POSIX_PATH_MAX];
-
-			snprintf(path, sizeof(path), "%s/%s", perm_config->chroot_dir, perm_config->config->xml_config_file);
-			perm_config->config->xml_config_hash = calc_sha1_hash(perm_config->config, path, 0);
-
-			if (perm_config->config->xml_config_hash == NULL) {
-				fprintf(stderr, ERRSTR"cannot open file '%s'\n", path);
-				exit(1);
-			}
-		}
-		if (perm_config->config->xml_config_hash == NULL) {
-			fprintf(stderr, ERRSTR"cannot open file '%s'\n", perm_config->config->xml_config_file);
-			exit(1);
-		}
+		perm_config->cert_hash = calc_sha1_certhash(perm_config, perm_config->cert[0]);
 	}
 
 	if (perm_config->config->keepalive == 0)

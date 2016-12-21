@@ -317,7 +317,6 @@ struct cfg_st {
 	char *proxy_url;
 
 	char *xml_config_file;
-	char *xml_config_hash;
 
 	/* additional configuration files */
 	char *per_group_dir;

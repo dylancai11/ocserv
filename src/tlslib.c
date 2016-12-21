@@ -997,7 +997,7 @@ int tls_uncork(gnutls_session_t session)
 	return gnutls_record_uncork(session, GNUTLS_RECORD_WAIT);
 }
 
-void *calc_sha1_hash(void *pool, char* file, unsigned cert)
+void *calc_sha1_certhash(void *pool, char* file)
 {
 int ret;
 gnutls_datum_t data;
@@ -1011,21 +1011,19 @@ unsigned i;
 		return NULL;
 	}
 
-	if (cert != 0) {
-		ret = gnutls_x509_crt_init(&crt);
-		GNUTLS_FATAL_ERR(ret);
+	ret = gnutls_x509_crt_init(&crt);
+	GNUTLS_FATAL_ERR(ret);
 
-		ret = gnutls_x509_crt_import(crt, &data, GNUTLS_X509_FMT_PEM);
-		if (ret == GNUTLS_E_BASE64_DECODING_ERROR)
-	  		ret = gnutls_x509_crt_import(crt, &data, GNUTLS_X509_FMT_DER);
-		GNUTLS_FATAL_ERR(ret);
+	ret = gnutls_x509_crt_import(crt, &data, GNUTLS_X509_FMT_PEM);
+	if (ret == GNUTLS_E_BASE64_DECODING_ERROR)
+  		ret = gnutls_x509_crt_import(crt, &data, GNUTLS_X509_FMT_DER);
+	GNUTLS_FATAL_ERR(ret);
 
-		gnutls_free(data.data);
+	gnutls_free(data.data);
 
-		ret = gnutls_x509_crt_export2(crt, GNUTLS_X509_FMT_DER, &data);
-		GNUTLS_FATAL_ERR(ret);
-		gnutls_x509_crt_deinit(crt);
-	}
+	ret = gnutls_x509_crt_export2(crt, GNUTLS_X509_FMT_DER, &data);
+	GNUTLS_FATAL_ERR(ret);
+	gnutls_x509_crt_deinit(crt);
 
 	ret = gnutls_hash_fast(GNUTLS_DIG_SHA1, data.data, data.size, digest);
 	gnutls_free(data.data);
@@ -1058,6 +1056,39 @@ unsigned i;
 	return retval;
 }
 
+void *calc_sha1_datahash(void *pool, unsigned char* _data, unsigned size)
+{
+int ret;
+gnutls_datum_t data = {_data, size};
+uint8_t digest[20];
+char * retval;
+unsigned i;
+
+	size_t ret_size = sizeof(digest)*2+1;
+	retval = talloc_size(pool, ret_size);
+	if (retval == NULL) {
+		return NULL;
+	}
+
+	ret = gnutls_hash_fast(GNUTLS_DIG_SHA1, data.data, data.size, digest);
+	if (ret < 0) {
+		return NULL;
+	}
+
+	data.data = digest;
+	data.size = sizeof(digest);
+	ret = gnutls_hex_encode(&data, retval, &ret_size);
+	if (ret < 0) {
+		return NULL;
+	}
+	if (retval[ret_size-1] == 0) ret_size--; /* remove the null terminator */
+
+	/* convert to all caps */
+	for (i=0;i<ret_size;i++)
+	        retval[i] = c_toupper(retval[i]);
+
+	return retval;
+}
 
 size_t tls_get_overhead(gnutls_protocol_t version, gnutls_cipher_algorithm_t cipher, gnutls_mac_algorithm_t mac)
 {

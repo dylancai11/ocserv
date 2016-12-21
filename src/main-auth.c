@@ -37,6 +37,7 @@
 #include <script-list.h>
 #include <ip-lease.h>
 #include <proc-search.h>
+#include "xml-config.h"
 #include "str.h"
 
 #include <vpn.h>
@@ -139,11 +140,15 @@ int send_cookie_auth_reply(main_server_st* s, struct proc_st* proc,
 		}
 
 		msg.config = proc->config;
+		load_xml_config(s, proc, &msg);
 
 		ret = send_socket_msg_to_worker(s, proc, AUTH_COOKIE_REP, proc->tun_lease.fd,
 			 &msg,
 			 (pack_size_func)auth_cookie_reply_msg__get_packed_size,
 			 (pack_func)auth_cookie_reply_msg__pack);
+
+		/* delete the contents of the XML config file - no longer needed */
+		talloc_free(msg.xml_config_contents.data);
 	} else {
 		msg.reply = AUTH__REP__FAILED;
 

@@ -169,6 +169,9 @@ typedef struct dtls_transport_ptr {
 
 typedef struct worker_st {
 	struct tls_st *creds;
+	unsigned char *xml_config_file_contents;
+	unsigned xml_config_file_size;
+
 	gnutls_session_t session;
 	gnutls_session_t dtls_session;
 
@@ -292,7 +295,6 @@ typedef struct worker_st {
 
 void vpn_server(struct worker_st* ws);
 
-int auth_cookie(worker_st *ws, void* cookie, size_t cookie_size);
 int auth_user_deinit(worker_st *ws);
 
 int get_auth_handler(worker_st *server, unsigned http_ver);

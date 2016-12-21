@@ -117,7 +117,8 @@ typedef struct
 
 void tls_cache_init(void *pool, tls_sess_db_st* db);
 void tls_cache_deinit(tls_sess_db_st* db);
-void *calc_sha1_hash(void *pool, char* file, unsigned cert);
+void *calc_sha1_certhash(void *pool, char* file);
+void *calc_sha1_datahash(void *pool, unsigned char* data, unsigned size);
 
 /* TLS API */
 int __attribute__ ((format(printf, 2, 3)))

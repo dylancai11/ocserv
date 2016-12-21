@@ -59,7 +59,7 @@ static const char oc_success_msg_head[] = "<?xml version=\"1.0\" encoding=\"UTF-
 				"<vpn-profile-manifest>" \
 				"<vpn rev=\"1.0\">" \
 				"<file type=\"profile\" service-type=\"user\">" \
-				"<uri>/profiles/%s</uri>" \
+				"<uri>/profiles/profile.xml</uri>" \
 				"<hash type=\"sha1\">%s</hash>" \
 				"</file>" \
 				"</vpn>" \
@@ -591,7 +591,14 @@ static int recv_cookie_auth_reply(worker_st * ws)
 			memcpy(ws->session_id, msg->session_id.data,
 			       msg->session_id.len);
 
+			/* we store pointers because they are allocated using (ws)
+			 * as pool */
 			ws->user_config = msg->config;
+			if (msg->has_xml_config_contents) {
+				oclog(ws, LOG_DEBUG, "received XML config file of %d bytes", (int)msg->xml_config_contents.len);
+				ws->xml_config_file_contents = msg->xml_config_contents.data;
+				ws->xml_config_file_size = msg->xml_config_contents.len;
+			}
 
 			if (msg->ipv4 != NULL) {
 				talloc_free(ws->vinfo.ipv4);
@@ -813,49 +820,11 @@ int get_cert_info(worker_st * ws)
 	return 0;
 }
 
-/* This makes sure that the provided cookie is valid,
- * and fills in the ws->user_config.
- */
-void cookie_authenticate_or_exit(worker_st *ws)
-{
-	int ret;
-
-	if (ws->auth_state == S_AUTH_COMPLETE)
-		return;
-
-	/* we must be in S_AUTH_COOKIE state */
-	if (ws->auth_state != S_AUTH_COOKIE || ws->cookie_set == 0) {
-		oclog(ws, LOG_WARNING, "no cookie found");
-		cstp_puts(ws,
-			 "HTTP/1.1 503 Service Unavailable\r\n\r\n");
-		cstp_fatal_close(ws, GNUTLS_A_ACCESS_DENIED);
-		exit_worker(ws);
-	}
-
-	/* we have authenticated against sec-mod, we need to complete
-	 * our authentication by forwarding our cookie to main. */
-	ret = auth_cookie(ws, ws->cookie, sizeof(ws->cookie));
-	if (ret < 0) {
-		oclog(ws, LOG_WARNING, "failed cookie authentication attempt");
-		if (ret == ERR_AUTH_FAIL) {
-			cstp_puts(ws,
-				 "HTTP/1.1 401 Unauthorized\r\n\r\n");
-			cstp_puts(ws,
-				 "X-Reason: Cookie is not acceptable\r\n\r\n");
-		} else {
-			cstp_puts(ws,
-				 "HTTP/1.1 503 Service Unavailable\r\n\r\n");
-		}
-		cstp_fatal_close(ws, GNUTLS_A_ACCESS_DENIED);
-		exit_worker(ws);
-	}
-	ws->auth_state = S_AUTH_COMPLETE;
-}
-
 /* sends a cookie authentication request to main thread and waits for
  * a reply.
  * Returns 0 on success.
  */
+static
 int auth_cookie(worker_st * ws, void *cookie, size_t cookie_size)
 {
 	int ret;
@@ -898,6 +867,45 @@ int auth_cookie(worker_st * ws, void *cookie, size_t cookie_size)
 	return 0;
 }
 
+/* This makes sure that the provided cookie is valid,
+ * and fills in the ws->user_config.
+ */
+void cookie_authenticate_or_exit(worker_st *ws)
+{
+	int ret;
+
+	if (ws->auth_state == S_AUTH_COMPLETE)
+		return;
+
+	/* we must be in S_AUTH_COOKIE state */
+	if (ws->auth_state != S_AUTH_COOKIE || ws->cookie_set == 0) {
+		oclog(ws, LOG_WARNING, "no cookie found");
+		cstp_puts(ws,
+			 "HTTP/1.1 503 Service Unavailable\r\n\r\n");
+		cstp_fatal_close(ws, GNUTLS_A_ACCESS_DENIED);
+		exit_worker(ws);
+	}
+
+	/* we have authenticated against sec-mod, we need to complete
+	 * our authentication by forwarding our cookie to main. */
+	ret = auth_cookie(ws, ws->cookie, sizeof(ws->cookie));
+	if (ret < 0) {
+		oclog(ws, LOG_WARNING, "failed cookie authentication attempt");
+		if (ret == ERR_AUTH_FAIL) {
+			cstp_puts(ws,
+				 "HTTP/1.1 401 Unauthorized\r\n\r\n");
+			cstp_puts(ws,
+				 "X-Reason: Cookie is not acceptable\r\n\r\n");
+		} else {
+			cstp_puts(ws,
+				 "HTTP/1.1 503 Service Unavailable\r\n\r\n");
+		}
+		cstp_fatal_close(ws, GNUTLS_A_ACCESS_DENIED);
+		exit_worker(ws);
+	}
+	ws->auth_state = S_AUTH_COMPLETE;
+}
+
 int post_common_handler(worker_st * ws, unsigned http_ver, const char *imsg)
 {
 	int ret, size;
@@ -905,9 +913,13 @@ int post_common_handler(worker_st * ws, unsigned http_ver, const char *imsg)
 	size_t str_cookie_size = sizeof(str_cookie);
 	char msg[MAX_BANNER_SIZE + 32];
 	const char *success_msg_head;
-	char *success_msg_foot;
+	char *success_msg_foot = NULL;
 	unsigned success_msg_head_size;
 	unsigned success_msg_foot_size;
+	char *xml_config_hash = NULL;
+
+	if (ws->xml_config_file_size > 0)
+		xml_config_hash = calc_sha1_datahash(ws, ws->xml_config_file_contents, ws->xml_config_file_size);
 
 	if (ws->req.user_agent_type == AGENT_OPENCONNECT_V3) {
 		success_msg_head = ocv3_success_msg_head;
@@ -917,15 +929,16 @@ int post_common_handler(worker_st * ws, unsigned http_ver, const char *imsg)
 	} else {
 		success_msg_head = oc_success_msg_head;
 		success_msg_foot = OC_SUCCESS_MSG_FOOT;
-		if (ws->config->xml_config_file) {
+
+		if (xml_config_hash) {
 			success_msg_foot = talloc_asprintf(ws, OC_SUCCESS_MSG_FOOT_PROFILE,
-				ws->config->xml_config_file, ws->config->xml_config_hash);
+				xml_config_hash);
 		} else {
 			success_msg_foot = talloc_strdup(ws, OC_SUCCESS_MSG_FOOT);
 		}
 
 		if (success_msg_foot == NULL)
-			return -1;
+			goto fail;
 
 		success_msg_head_size = sizeof(oc_success_msg_head)-1;
 		success_msg_foot_size = strlen(success_msg_foot);
@@ -1008,13 +1021,12 @@ int post_common_handler(worker_st * ws, unsigned http_ver, const char *imsg)
 	if (ret < 0)
 		goto fail;
 
-	if (ws->config->xml_config_file) {
+	if (xml_config_hash) {
 		ret =
 		    cstp_printf(ws,
-			       "Set-Cookie: webvpnc=bu:/&p:t&iu:1/&sh:%s&lu:/+CSCOT+/translation-table?textdomain%%3DAnyConnect%%26type%%3Dmanifest&fu:profiles%%2F%s&fh:%s; path=/; Secure\r\n",
+			       "Set-Cookie: webvpnc=bu:/&p:t&iu:1/&sh:%s&lu:/+CSCOT+/translation-table?textdomain%%3DAnyConnect%%26type%%3Dmanifest&fu:profiles%%2Fprofile.xml&fh:%s; path=/; Secure\r\n",
 			       ws->perm_config->cert_hash,
-			       ws->config->xml_config_file,
-			       ws->config->xml_config_hash);
+			       xml_config_hash);
 	} else {
 		ret =
 		    cstp_printf(ws,
@@ -1039,6 +1051,7 @@ int post_common_handler(worker_st * ws, unsigned http_ver, const char *imsg)
 
  fail:
 	talloc_free(success_msg_foot);
+	talloc_free(xml_config_hash);
 	return -1;
 }
 
@@ -1560,6 +1573,9 @@ int post_auth_handler(worker_st * ws, unsigned http_ver)
 
 	oclog(ws, LOG_HTTP_DEBUG, "user '%s' obtained cookie", ws->username);
 	ws->auth_state = S_AUTH_COOKIE;
+
+	/* ensure the cookie is valid */
+	cookie_authenticate_or_exit(ws);
 
 	ret = post_common_handler(ws, http_ver, msg);
 	goto cleanup;
