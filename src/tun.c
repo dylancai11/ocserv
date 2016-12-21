@@ -524,6 +524,11 @@ static int bsd_open_tun(main_server_st * s)
 }
 #endif
 
+int dev_null_fd(void)
+{
+	return open("/dev/null", O_RDWR);
+}
+
 int open_tun(main_server_st * s, struct proc_st *proc)
 {
 	int tunfd, ret, e;
@@ -535,6 +540,12 @@ int open_tun(main_server_st * s, struct proc_st *proc)
 		return ret;
 	snprintf(proc->tun_lease.name, sizeof(proc->tun_lease.name), "%s%%d",
 		 s->config->network.name);
+
+	if (s->config->fake_device) {
+		tunfd = dev_null_fd();
+		strlcpy(proc->tun_lease.name, "null", sizeof(proc->tun_lease.name));
+		goto final;
+	}
 
 	/* No need to free the lease after this point.
 	 */
@@ -637,6 +648,7 @@ int open_tun(main_server_st * s, struct proc_st *proc)
 		goto fail;
 	}
 
+ final:
 	proc->tun_lease.fd = tunfd;
 
 	return 0;
