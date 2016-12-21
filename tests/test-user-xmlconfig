@@ -1,0 +1,74 @@
+#!/bin/bash
+#
+# Copyright (C) 2016 Nikos Mavrogiannopoulos
+#
+# This file is part of ocserv.
+#
+# ocserv is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# ocserv is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GnuTLS; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+SERV="${SERV:-../src/ocserv}"
+srcdir=${srcdir:-.}
+NO_NEED_ROOT=1
+
+# Test whether different XML configs are served to users.
+
+. `dirname $0`/common.sh
+
+echo "Testing ocserv XML config retrieval... "
+
+TMPFILE1=${srcdir}/test-user-xmlconfig.$$.tmp
+
+rm -f ${TMPFILE1}
+
+update_config test-user-xmlconfig.config
+launch_sr_server -d 1 -f -c ${CONFIG} >/dev/null 2>&1 & PID=$!
+wait_server $PID
+
+echo -n "Connecting to obtain default XML config... "
+export LD_PRELOAD=libsocket_wrapper.so
+echo "test" | $OPENCONNECT -q $ADDRESS -u test-default-config --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --authenticate -x $TMPFILE1 >/dev/null 2>&1
+if ! test -f $TMPFILE1;then
+	fail $PID "Could not receive config from server"
+fi
+
+cmp $TMPFILE1 "${srcdir}/data/default-profile.xml"
+if test $? != 0;then
+	cat $TMPFILE1
+	fail $PID "Did not receive the right config from server"
+fi
+
+rm -f ${TMPFILE1}
+echo ok
+
+echo -n "Connecting to obtain alternative XML config... "
+export LD_PRELOAD=libsocket_wrapper.so
+echo "test" | $OPENCONNECT -q $ADDRESS -u test-alt-config --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --authenticate -x $TMPFILE1 >/dev/null 2>&1
+if ! test -f $TMPFILE1;then
+	fail $PID "Could not receive config from server"
+fi
+
+cmp $TMPFILE1 "${srcdir}/data/alt-profile.xml"
+if test $? != 0;then
+	cat $TMPFILE1
+	fail $PID "Did not receive the right config from server"
+fi
+
+echo ok
+
+rm -f ${TMPFILE1}
+
+cleanup
+
+exit 0

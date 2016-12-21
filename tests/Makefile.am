@@ -18,7 +18,9 @@ EXTRA_DIST = certs/ca-key.pem certs/ca.pem common.sh certs/server-cert.pem \
 	certs/server-key-ossl.pem certs/server-key-p8.pem proxyproto-unix-test certs/user-cn.pem \
 	certs/user-cert-testuser.pem test-stress data/test-user-config.config user-config/testuser \
 	data/test-sighup-key-change.config data/test-sighup-key-change.config user-config/testipnet \
-	certs/user-cert-testipnet.pem certs/user-cert-invalid.pem certs/server-cert-ca.pem
+	certs/user-cert-testipnet.pem certs/user-cert-invalid.pem certs/server-cert-ca.pem \
+	data/test-user-xmlconfig.config user-config-xml/test-no-config user-config-xml/test-alt-config \
+	data/default-profile.xml data/alt-profile.xml
 
 SUBDIRS = docker-ocserv docker-kerberos
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnyConnectProfile xmlns="http://schemas.xmlsoap.org/encoding/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.xmlsoap.org/encoding/ AnyConnectProfile.xsd">
+
+	<ServerList>
+		<HostEntry>
+	            <HostName>VPN Server</HostName>
+	            <HostAddress>localhost</HostAddress>
+		</HostEntry>
+		<HostEntry>
+	            <HostName>VPN Server 2</HostName>
+	            <HostAddress>localhost2</HostAddress>
+		</HostEntry>
+	</ServerList>
+</AnyConnectProfile>
