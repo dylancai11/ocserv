@@ -23,6 +23,12 @@
 
 #include <sec-mod-auth.h>
 
+#ifdef LEGACY_RADIUS
+# include <freeradius-client.h>
+#else
+# include <radcli/radcli.h>
+#endif
+
 struct radius_ctx_st {
 	char username[MAX_USERNAME_SIZE*2];
 	char user_agent[MAX_AGENT_NAME];
@@ -50,7 +56,7 @@ struct radius_ctx_st {
 	char **routes;
 	unsigned routes_size;
 
-	const char *pass_msg;
+	char pass_msg[AUTH_STRING_LEN]; /* radcli limit */
 	unsigned retries;
 	unsigned id;
 };
