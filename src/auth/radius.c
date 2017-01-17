@@ -364,7 +364,14 @@ static int radius_auth_pass(void *ctx, const char *pass, unsigned pass_len)
 			} else if (vp->attribute == PW_FRAMED_IP_ADDRESS && vp->type == PW_TYPE_IPADDR) {
 				/* Framed-IP-Address */
 				ipv4 = htonl(vp->lvalue);
-				inet_ntop(AF_INET, &ipv4, pctx->ipv4, sizeof(pctx->ipv4));
+				if (ipv4 != 0xffffffff && ipv4 != 0xfffffffe) {
+					/* According to RFC2865 the values above (fe) instruct the
+					 * server to assign an address from the pool of the server,
+					 * and (ff) to assign address as negotiated with the client.
+					 * We don't negotiate with clients.
+					 */
+					inet_ntop(AF_INET, &ipv4, pctx->ipv4, sizeof(pctx->ipv4));
+				}
 			} else if (vp->attribute == PW_FRAMED_IP_NETMASK && vp->type == PW_TYPE_IPADDR) {
 				/* Framed-IP-Netmask */
 				ipv4 = htonl(vp->lvalue);
